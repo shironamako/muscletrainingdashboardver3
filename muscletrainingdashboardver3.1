@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BODY CAPITAL 2026 - Ultra-Visibility Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            /* スマホで縦スクロールできるようにoverflow:hiddenを解除し、x方向のみ隠す */
+            overflow-x: hidden; 
+            touch-action: manipulation;
+        }
+
+        /* 3m離れていても読みやすい等幅フォント */
+        .timer-font {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
+
+        /* アクティブなカードを強調 */
+        .active-row {
+            background: rgba(56, 189, 248, 0.15);
+            border-left: 6px solid #38bdf8;
+        }
+
+        .completed-row {
+            opacity: 0.4;
+            filter: grayscale(0.8);
+        }
+
+        /* スライダーの操作性を維持 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #38bdf8;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.8);
+            border: 2px solid white;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.15; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(1.02); }
+        }
+        .glow-bg {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+        
+        /* カスタムスクロールバー（PC用） */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5); 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-32 md:pb-6 p-4 md:p-8 relative">
+
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b-2 border-slate-800 pb-4 gap-4">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black text-white tracking-tighter italic uppercase drop-shadow-md">
+                BODY CAPITAL <span class="text-sky-500">2026</span>
+            </h1>
+            <p class="text-slate-500 text-xs md:text-sm font-bold uppercase tracking-[0.3em] mt-1">Ultra-Visibility Dashboard v3.1</p>
+        </div>
+        <div class="text-left md:text-right w-full md:w-auto flex justify-between md:block items-end">
+            <div id="finish-estimate" class="text-lg md:text-xl font-mono text-slate-400 mb-0 md:mb-2 tracking-widest">ETA --:--</div>
+            <div class="flex items-center gap-4">
+                <span id="total-progress-percent" class="text-3xl md:text-4xl font-black text-sky-400">0%</span>
+                <div class="w-32 md:w-48 h-2 md:h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                    <div id="progress-bar-inner" class="h-full bg-sky-500 transition-all duration-300 shadow-[0_0_10px_#38bdf8]" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:grid md:grid-cols-12 gap-6 min-h-0">
+        
+        <!-- Left: Huge Timer Section -->
+        <div class="md:col-span-8 flex flex-col justify-center items-center bg-slate-900/80 rounded-[2rem] border-2 border-slate-800 relative overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.5)] py-10 md:py-0 min-h-[50vh] md:min-h-0">
+            <div id="bg-visual" class="absolute inset-0 transition-all duration-1000"></div>
+            
+            <div class="z-10 flex flex-col items-center w-full px-4 md:px-8">
+                <!-- 種目名 -->
+                <div id="current-label" class="text-3xl md:text-4xl lg:text-5xl xl:text-7xl font-black text-slate-200 mb-2 md:mb-4 uppercase tracking-[0.1em] drop-shadow-lg text-center leading-tight">READY</div>
+                
+                <!-- タイマー（コンテナ幅に合わせてレスポンシブに縮小） -->
+                <div id="timer-display" class="timer-font text-[30vw] md:text-[14vw] lg:text-[12vw] xl:text-[18rem] leading-none font-black text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)]">00:10</div>
+                
+                <!-- セット数表示 -->
+                <div id="set-info" class="text-xl md:text-2xl lg:text-3xl xl:text-5xl font-bold text-sky-500 mt-4 md:mt-6 tracking-[0.1em] bg-slate-950/80 px-6 py-2 xl:px-8 xl:py-3 rounded-2xl md:rounded-3xl border-2 border-sky-500/30 shadow-xl w-[90%] md:w-auto text-center truncate">
+                    ---
+                </div>
+            </div>
+
+            <!-- 次の種目予告 -->
+            <div class="absolute bottom-6 md:bottom-12 left-0 right-0 text-center bg-slate-950/60 py-2 md:py-4 backdrop-blur-md border-y border-slate-800/50">
+                <p class="text-[10px] md:text-xs text-slate-400 uppercase tracking-[0.4em] mb-1 font-black">NEXT UP</p>
+                <p id="next-label" class="text-xl md:text-2xl xl:text-3xl text-slate-300 font-black tracking-tight italic">---</p>
+            </div>
+        </div>
+
+        <!-- Right: Menu Section -->
+        <div class="md:col-span-4 flex flex-col min-h-0 bg-slate-900/30 p-4 rounded-[2rem] border border-slate-800">
+            <div class="flex justify-between items-center mb-4 px-2">
+                <div class="text-sm font-black text-slate-500 uppercase tracking-widest">Protocol Queue</div>
+                <div class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-bold">AUTO</div>
+            </div>
+            
+            <div id="menu-list" class="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                <!-- Cards generated by JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer: Controls -->
+    <footer class="fixed bottom-0 left-0 right-0 md:static md:mt-8 bg-slate-900/95 md:bg-slate-900/90 backdrop-blur-2xl border-t-2 md:border-2 border-slate-800 md:rounded-[2rem] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-2xl z-50">
+        <div class="flex flex-row items-center gap-4 md:gap-8 max-w-7xl mx-auto">
+            
+            <div class="flex items-center gap-3 md:gap-6">
+                <!-- Play/Pause -->
+                <button id="main-btn" class="w-16 h-16 md:w-24 md:h-24 flex items-center justify-center bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-full transition-all shadow-[0_0_30px_rgba(56,189,248,0.4)] active:scale-90 flex-shrink-0">
+                    <svg id="play-icon" class="w-8 h-8 md:w-12 md:h-12 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pause-icon" class="w-8 h-8 md:w-12 md:h-12 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+
+                <!-- Reset -->
+                <button id="reset-btn" class="w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-full active:rotate-180 duration-700 shadow-lg flex-shrink-0">
+                    <svg class="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+            </div>
+
+            <!-- Slider Container -->
+            <div class="flex-1 w-full flex flex-col justify-center">
+                <input type="range" id="master-slider" class="w-full mb-2" value="0" step="1">
+                <div class="flex justify-between text-[10px] md:text-xs font-mono text-slate-500 uppercase tracking-wider font-bold">
+                    <div class="flex gap-3 md:gap-6">
+                        <span>ELAPSED: <span id="time-elapsed" class="text-sky-400">00:00</span></span>
+                        <span>REM: <span id="time-rem-total" class="text-slate-300">00:00</span></span>
+                    </div>
+                    <span>TOTAL: <span id="time-total" class="text-slate-200">00:00</span></span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const EXERCISES = [
+            { id: 1, name: "スクワット", sets: 3, work: 30, rest: 50, trans: 30 },
+            { id: 2, name: "プランク", sets: 3, work: 60, rest: 60, trans: 30 },
+            { id: 3, name: "グルートブリッジ", sets: 3, work: 60, rest: 60, trans: 30 },
+            { id: 4, name: "膝着きアブローラー", sets: 3, work: 35, rest: 60, trans: 0 }
+        ];
+
+        let timeline = [];
+        let totalSeconds = 0;
+
+        function buildTimeline() {
+            timeline = [];
+            let t = 0;
+            timeline.push({ start: t, end: t + 10, label: 'READY', type: 'prep', exId: 0 });
+            t += 10;
+
+            EXERCISES.forEach((ex, idx) => {
+                for (let s = 1; s <= ex.sets; s++) {
+                    timeline.push({ start: t, end: t + ex.work, label: ex.name, type: 'work', set: s, totalSets: ex.sets, exId: ex.id });
+                    t += ex.work;
+                    if (s < ex.sets) {
+                        timeline.push({ start: t, end: t + ex.rest, label: 'REST', type: 'rest', set: s, exId: ex.id });
+                        t += ex.rest;
+                    } else if (ex.trans > 0 && idx < EXERCISES.length - 1) {
+                        timeline.push({ start: t, end: t + ex.trans, label: 'PREP NEXT', type: 'trans', set: s, exId: ex.id });
+                        t += ex.trans;
+                    }
+                }
+            });
+            totalSeconds = t;
+            return t;
+        }
+
+        let currentSec = 0;
+        let isRunning = false;
+        let timerInterval = null;
+        let lastStepIndex = -1;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        const timerDisplay = document.getElementById('timer-display');
+        const currentLabel = document.getElementById('current-label');
+        const nextLabel = document.getElementById('next-label');
+        const setInfo = document.getElementById('set-info');
+        const masterSlider = document.getElementById('master-slider');
+        const timeElapsed = document.getElementById('time-elapsed');
+        const timeTotal = document.getElementById('time-total');
+        const timeRemTotal = document.getElementById('time-rem-total');
+        const finishEstimate = document.getElementById('finish-estimate');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const bgVisual = document.getElementById('bg-visual');
+        const menuList = document.getElementById('menu-list');
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        }
+
+        function updateEstimate() {
+            const now = new Date();
+            const remaining = totalSeconds - currentSec;
+            const finishTime = new Date(now.getTime() + remaining * 1000);
+            finishEstimate.textContent = `ETA ${finishTime.getHours().toString().padStart(2,'0')}:${finishTime.getMinutes().toString().padStart(2,'0')}`;
+        }
+
+        function beep(freq, duration) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function initMenu() {
+            menuList.innerHTML = '';
+            EXERCISES.forEach(ex => {
+                let dotsHtml = `<div class="flex gap-2 mt-3 items-center"><span class="text-[10px] font-bold text-slate-500">SETS</span>`;
+                for(let i=1; i<=ex.sets; i++) {
+                    dotsHtml += `<div id="dot-${ex.id}-${i}" class="w-3 h-3 md:w-4 md:h-4 rounded-full bg-slate-700 transition-all duration-300"></div>`;
+                }
+                dotsHtml += `</div>`;
+
+                const div = document.createElement('div');
+                div.id = `ex-card-${ex.id}`;
+                div.className = "p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 transition-all duration-500 relative overflow-hidden";
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="font-black text-base md:text-lg tracking-tight text-slate-200">${ex.id}. ${ex.name}</span>
+                        <span class="text-[10px] bg-sky-500/10 px-2 py-1 rounded text-sky-400 font-bold border border-sky-500/20">${ex.sets} SETS</span>
+                    </div>
+                    <div class="flex gap-3 text-[10px] md:text-xs text-slate-400 font-mono font-bold uppercase">
+                        <span>WORK: ${ex.work}S</span>
+                        <span>REST: ${ex.rest}S</span>
+                    </div>
+                    ${dotsHtml}
+                `;
+                menuList.appendChild(div);
+            });
+        }
+
+        function updateUI() {
+            const stepIndex = timeline.findIndex(s => currentSec < s.end);
+            const activeIndex = stepIndex === -1 ? timeline.length - 1 : stepIndex;
+            const step = timeline[activeIndex];
+            const remaining = Math.max(0, step.end - currentSec);
+
+            if (isRunning) {
+                if (lastStepIndex !== -1 && activeIndex !== lastStepIndex) beep(880, 0.7);
+                if (remaining <= 3 && remaining > 0 && currentSec !== step.start) beep(440, 0.15);
+            }
+            lastStepIndex = activeIndex;
+
+            timerDisplay.textContent = formatTime(remaining);
+            currentLabel.textContent = step.label;
+            
+            // タブレットでも見切れないようにJS内のクラス名も調整
+            if (step.type === 'work') {
+                setInfo.textContent = `SET ${step.set} / ${step.totalSets}`;
+                setInfo.className = "text-xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-amber-400 mt-4 md:mt-6 tracking-[0.1em] bg-slate-950/80 px-6 py-2 xl:px-8 xl:py-3 rounded-2xl md:rounded-3xl border-2 border-amber-400/30 shadow-xl w-[90%] md:w-auto text-center";
+            } else if (step.type === 'rest') {
+                setInfo.textContent = `INTERVAL (AFTER SET ${step.set})`;
+                setInfo.className = "text-sm md:text-lg lg:text-2xl xl:text-3xl font-bold text-sky-400 mt-4 md:mt-6 tracking-[0.05em] bg-slate-950/80 px-4 py-2 xl:px-6 rounded-2xl md:rounded-3xl border border-sky-500/30 w-[90%] md:w-auto text-center truncate";
+            } else {
+                setInfo.textContent = "BREATH & PREP";
+                setInfo.className = "text-sm md:text-lg lg:text-2xl xl:text-3xl font-bold text-emerald-400 mt-4 md:mt-6 tracking-[0.05em] bg-slate-950/80 px-4 py-2 xl:px-6 rounded-2xl md:rounded-3xl border border-emerald-500/30 w-[90%] md:w-auto text-center truncate";
+            }
+            
+            const nextStep = timeline.slice(activeIndex + 1).find(s => s.type === 'work' && s.exId !== step.exId);
+            nextLabel.textContent = nextStep ? nextStep.label : 'ALL TASKS CLEAR';
+
+            masterSlider.value = currentSec;
+            timeElapsed.textContent = formatTime(currentSec);
+            timeRemTotal.textContent = formatTime(totalSeconds - currentSec);
+            const progress = Math.round((currentSec / totalSeconds) * 100);
+            document.getElementById('total-progress-percent').textContent = progress + '%';
+            document.getElementById('progress-bar-inner').style.width = progress + '%';
+            updateEstimate();
+
+            let bgColorClass = "bg-slate-900";
+            let textColor = "#ffffff";
+            if (step.type === 'work') {
+                bgColorClass = "bg-sky-600";
+                textColor = "#38bdf8";
+            } else if (step.type === 'prep' || step.type === 'trans') {
+                bgColorClass = "bg-amber-600";
+                textColor = "#fbbf24";
+            } else {
+                bgColorClass = "bg-emerald-600";
+                textColor = "#34d399";
+            }
+            bgVisual.className = `absolute inset-0 opacity-15 md:opacity-20 ${bgColorClass} glow-bg transition-all duration-1000`;
+            timerDisplay.style.color = textColor;
+
+            EXERCISES.forEach(ex => {
+                const card = document.getElementById(`ex-card-${ex.id}`);
+                if (!card) return;
+                
+                if (ex.id === step.exId) {
+                    card.className = "p-4 rounded-2xl active-row transition-all duration-500 ring-1 ring-sky-500/50 shadow-md relative overflow-hidden";
+                } else if (ex.id < step.exId || (step.exId === 0 && currentSec > 0)) {
+                    card.className = "p-4 rounded-2xl completed-row transition-all duration-500 relative overflow-hidden";
+                } else {
+                    card.className = "p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 transition-all duration-500 relative overflow-hidden";
+                }
+
+                for(let i=1; i<=ex.sets; i++) {
+                    const dot = document.getElementById(`dot-${ex.id}-${i}`);
+                    if(!dot) continue;
+
+                    if (ex.id < step.exId) {
+                        dot.className = "w-3 h-3 md:w-4 md:h-4 rounded-full bg-sky-500 shadow-[0_0_8px_#38bdf8]";
+                    } else if (ex.id === step.exId) {
+                        if (i < step.set || (i === step.set && (step.type === 'rest' || step.type === 'trans'))) {
+                            dot.className = "w-3 h-3 md:w-4 md:h-4 rounded-full bg-sky-500 shadow-[0_0_8px_#38bdf8]";
+                        } else if (i === step.set && step.type === 'work') {
+                            dot.className = "w-3 h-3 md:w-4 md:h-4 rounded-full bg-amber-400 animate-pulse shadow-[0_0_10px_#fbbf24]";
+                        } else {
+                            dot.className = "w-3 h-3 md:w-4 md:h-4 rounded-full bg-slate-700";
+                        }
+                    } else {
+                        dot.className = "w-3 h-3 md:w-4 md:h-4 rounded-full bg-slate-700";
+                    }
+                }
+            });
+
+            if (currentSec >= totalSeconds) {
+                stop();
+                currentLabel.textContent = "TRAINING COMPLETE";
+                timerDisplay.textContent = "FIN";
+                timerDisplay.style.color = "#10b981";
+                setInfo.textContent = "EXCELLENT WORK";
+                beep(880, 1.5);
+            }
+        }
+
+        function start() {
+            if (currentSec >= totalSeconds) currentSec = 0;
+            isRunning = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            timerInterval = setInterval(() => {
+                currentSec++;
+                updateUI();
+            }, 1000);
+        }
+
+        function stop() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+        }
+
+        window.onload = () => {
+            const total = buildTimeline();
+            masterSlider.max = total;
+            timeTotal.textContent = formatTime(total);
+            initMenu();
+            updateUI();
+        };
+
+        document.getElementById('main-btn').addEventListener('click', () => {
+            if (isRunning) stop(); else start();
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            stop();
+            currentSec = 0;
+            lastStepIndex = -1;
+            updateUI();
+        });
+
+        masterSlider.addEventListener('input', (e) => {
+            currentSec = parseInt(e.target.value);
+            lastStepIndex = -1;
+            updateUI();
+        });
+    </script>
+</body>
+</html>
