@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BODY CAPITAL 2026 - Ultra-Visibility Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* 3m離れていても読みやすい等幅フォント */
+        .timer-font {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
+
+        /* アクティブなカードを強調 */
+        .active-row {
+            background: rgba(56, 189, 248, 0.25);
+            border-left: 8px solid #38bdf8;
+            transform: scale(1.02);
+        }
+
+        .completed-row {
+            opacity: 0.2;
+            filter: grayscale(1);
+        }
+
+        /* スライダーの操作性を維持 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 12px;
+            background: #1e293b;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            background: #38bdf8;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+            border: 3px solid white;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.15; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(1.05); }
+        }
+        .glow-bg {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col p-6 md:p-10">
+
+    <!-- Header: 資産運用をイメージさせる精悍なデザイン -->
+    <header class="flex justify-between items-end mb-8 border-b-2 border-slate-800 pb-6">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black text-white tracking-tighter italic uppercase">
+                BODY CAPITAL <span class="text-sky-500">2026</span>
+            </h1>
+            <p class="text-slate-500 text-sm font-bold uppercase tracking-[0.3em] mt-2">Ultra-Visibility Dashboard v3.0</p>
+        </div>
+        <div class="text-right">
+            <div id="finish-estimate" class="text-xl font-mono text-slate-400 mb-2 tracking-widest">ETA --:--</div>
+            <div class="flex items-center gap-4">
+                <span id="total-progress-percent" class="text-4xl font-black text-sky-400">0%</span>
+                <div class="w-48 h-3 bg-slate-800 rounded-full overflow-hidden hidden md:block border border-slate-700">
+                    <div id="progress-bar-inner" class="h-full bg-sky-500 transition-all duration-300 shadow-[0_0_10px_#38bdf8]" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-8 min-h-0">
+        
+        <!-- Left: Huge Timer Section (3m離れても見れるメイン領域) -->
+        <div class="md:col-span-8 flex flex-col justify-center items-center bg-slate-900/80 rounded-[3rem] border-2 border-slate-800 relative overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <div id="bg-visual" class="absolute inset-0 transition-all duration-1000"></div>
+            
+            <div class="z-10 flex flex-col items-center w-full px-6">
+                <!-- 種目名は巨大かつ太字で -->
+                <div id="current-label" class="text-4xl md:text-7xl font-black text-slate-300 mb-4 uppercase tracking-[0.2em] drop-shadow-lg text-center leading-tight">READY</div>
+                
+                <!-- タイマー：28インチモニターで最大化 -->
+                <div id="timer-display" class="timer-font text-[12rem] md:text-[22rem] leading-none font-black text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)]">00:10</div>
+                
+                <!-- セット数表示を強調 -->
+                <div id="set-info" class="text-3xl md:text-6xl font-bold text-sky-500 mt-6 tracking-[0.1em] bg-slate-950/80 px-12 py-4 rounded-3xl border-2 border-sky-500/30 shadow-xl">
+                    ---
+                </div>
+            </div>
+
+            <!-- 次の種目予告を大きく表示 -->
+            <div class="absolute bottom-12 left-0 right-0 text-center bg-slate-950/40 py-4 backdrop-blur-sm border-y border-slate-800/50">
+                <p class="text-xs md:text-sm text-slate-500 uppercase tracking-[0.5em] mb-2 font-black">NEXT UP</p>
+                <p id="next-label" class="text-2xl md:text-4xl text-slate-300 font-black tracking-tight italic">---</p>
+            </div>
+        </div>
+
+        <!-- Right: Menu Section (メニューリスト) -->
+        <div class="md:col-span-4 flex flex-col min-h-0">
+            <div class="flex justify-between items-center mb-4">
+                <div class="text-sm font-black text-slate-500 uppercase tracking-widest">Protocol Queue</div>
+                <div class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400">AUTOMATIC TRANSITION</div>
+            </div>
+            
+            <div id="menu-list" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                <!-- Cards generated by JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer: Controls (巨大なボタン) -->
+    <footer class="mt-8 bg-slate-900/90 backdrop-blur-2xl border-2 border-slate-800 rounded-[3rem] p-6 md:p-8 shadow-2xl">
+        <div class="flex flex-col md:flex-row items-center gap-6 md:gap-12">
+            
+            <div class="flex items-center gap-6">
+                <!-- Play/Pause -->
+                <button id="main-btn" class="w-20 h-20 md:w-28 md:h-28 flex items-center justify-center bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-full transition-all shadow-[0_0_40px_rgba(56,189,248,0.4)] active:scale-90">
+                    <svg id="play-icon" class="w-10 h-10 md:w-14 md:h-14" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pause-icon" class="w-10 h-10 md:w-14 md:h-14 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+
+                <!-- Reset -->
+                <button id="reset-btn" class="w-16 h-16 flex items-center justify-center text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-full active:rotate-180 duration-700 shadow-lg">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+            </div>
+
+            <!-- Slider Container -->
+            <div class="flex-1 w-full">
+                <input type="range" id="master-slider" class="w-full mb-3" value="0" step="1">
+                <div class="flex justify-between text-xs md:text-sm font-mono text-slate-500 uppercase tracking-widest font-bold">
+                    <div class="flex gap-8">
+                        <span>ELAPSED: <span id="time-elapsed" class="text-sky-400">00:00</span></span>
+                        <span>REMAINING: <span id="time-rem-total" class="text-slate-300">00:00</span></span>
+                    </div>
+                    <span>TOTAL: <span id="time-total" class="text-slate-200">00:00</span></span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * 1. ワークアウト構成
+         * スクワットを4セットに変更済み
+         */
+        const EXERCISES = [
+            { id: 1, name: "スクワット", sets: 4, work: 30, rest: 50, trans: 30 },
+            { id: 2, name: "プランク", sets: 3, work: 60, rest: 60, trans: 30 },
+            { id: 3, name: "グルートブリッジ", sets: 3, work: 60, rest: 60, trans: 30 },
+            { id: 4, name: "膝着きアブローラー", sets: 3, work: 35, rest: 60, trans: 0 }
+        ];
+
+        let timeline = [];
+        let totalSeconds = 0;
+
+        function buildTimeline() {
+            timeline = [];
+            let t = 0;
+            // PREPARATION (10s)
+            timeline.push({ start: t, end: t + 10, label: 'READY', type: 'prep', exId: 0 });
+            t += 10;
+
+            EXERCISES.forEach((ex, idx) => {
+                for (let s = 1; s <= ex.sets; s++) {
+                    // WORK PHASE
+                    timeline.push({ 
+                        start: t, end: t + ex.work, 
+                        label: ex.name, type: 'work', set: s, totalSets: ex.sets, exId: ex.id 
+                    });
+                    t += ex.work;
+                    
+                    // REST or TRANSITION
+                    if (s < ex.sets) {
+                        timeline.push({ start: t, end: t + ex.rest, label: 'REST', type: 'rest', exId: ex.id });
+                        t += ex.rest;
+                    } else if (ex.trans > 0 && idx < EXERCISES.length - 1) {
+                        timeline.push({ start: t, end: t + ex.trans, label: 'PREP NEXT', type: 'trans', exId: ex.id });
+                        t += ex.trans;
+                    }
+                }
+            });
+            totalSeconds = t;
+            return t;
+        }
+
+        /**
+         * 2. 状態管理
+         */
+        let currentSec = 0;
+        let isRunning = false;
+        let timerInterval = null;
+        let lastStepIndex = -1;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        /**
+         * 3. UI部品
+         */
+        const timerDisplay = document.getElementById('timer-display');
+        const currentLabel = document.getElementById('current-label');
+        const nextLabel = document.getElementById('next-label');
+        const setInfo = document.getElementById('set-info');
+        const masterSlider = document.getElementById('master-slider');
+        const timeElapsed = document.getElementById('time-elapsed');
+        const timeTotal = document.getElementById('time-total');
+        const timeRemTotal = document.getElementById('time-rem-total');
+        const finishEstimate = document.getElementById('finish-estimate');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const bgVisual = document.getElementById('bg-visual');
+        const menuList = document.getElementById('menu-list');
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        }
+
+        function updateEstimate() {
+            const now = new Date();
+            const remaining = totalSeconds - currentSec;
+            const finishTime = new Date(now.getTime() + remaining * 1000);
+            finishEstimate.textContent = `ETA ${finishTime.getHours().toString().padStart(2,'0')}:${finishTime.getMinutes().toString().padStart(2,'0')}`;
+        }
+
+        function beep(freq, duration) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function initMenu() {
+            menuList.innerHTML = '';
+            EXERCISES.forEach(ex => {
+                const div = document.createElement('div');
+                div.id = `ex-card-${ex.id}`;
+                div.className = "p-5 rounded-3xl bg-slate-800/40 border border-slate-700/50 transition-all duration-500";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-black text-lg tracking-tight">${ex.id}. ${ex.name}</span>
+                        <span class="text-xs bg-sky-500/20 px-3 py-1 rounded-full text-sky-400 font-black italic border border-sky-500/30">${ex.sets} SETS</span>
+                    </div>
+                    <div class="flex gap-4 text-xs text-slate-500 font-mono font-bold uppercase">
+                        <span>WORK: ${ex.work}S</span>
+                        <span>REST: ${ex.rest}S</span>
+                    </div>
+                `;
+                menuList.appendChild(div);
+            });
+        }
+
+        function updateUI() {
+            const stepIndex = timeline.findIndex(s => currentSec < s.end);
+            const activeIndex = stepIndex === -1 ? timeline.length - 1 : stepIndex;
+            const step = timeline[activeIndex];
+            const remaining = Math.max(0, step.end - currentSec);
+
+            // Audio cues
+            if (isRunning) {
+                if (lastStepIndex !== -1 && activeIndex !== lastStepIndex) {
+                    beep(880, 0.7); // ポーン（切り替わり）
+                }
+                if (remaining <= 3 && remaining > 0 && currentSec !== step.start) {
+                    beep(440, 0.15); // ピッ（カウントダウン）
+                }
+            }
+            lastStepIndex = activeIndex;
+
+            // Timer & Labels
+            timerDisplay.textContent = formatTime(remaining);
+            currentLabel.textContent = step.label;
+            setInfo.textContent = step.set ? `SET ${step.set} / ${step.totalSets}` : 'BREATH';
+            
+            // Next up
+            const nextStep = timeline.slice(activeIndex + 1).find(s => s.type === 'work' && s.exId !== step.exId);
+            nextLabel.textContent = nextStep ? nextStep.label : 'ALL TASKS CLEAR';
+
+            // Stats
+            masterSlider.value = currentSec;
+            timeElapsed.textContent = formatTime(currentSec);
+            timeRemTotal.textContent = formatTime(totalSeconds - currentSec);
+            const progress = Math.round((currentSec / totalSeconds) * 100);
+            document.getElementById('total-progress-percent').textContent = progress + '%';
+            document.getElementById('progress-bar-inner').style.width = progress + '%';
+            updateEstimate();
+
+            // Visual State & Background Color (ハイコントラスト化)
+            let bgColorClass = "bg-slate-900";
+            let textColor = "#ffffff";
+            if (step.type === 'work') {
+                bgColorClass = "bg-sky-500";
+                textColor = "#38bdf8";
+            } else if (step.type === 'prep') {
+                bgColorClass = "bg-amber-500";
+                textColor = "#fbbf24";
+            } else {
+                bgColorClass = "bg-emerald-500";
+                textColor = "#34d399";
+            }
+            bgVisual.className = `absolute inset-0 opacity-20 ${bgColorClass} glow-bg transition-all duration-1000`;
+            timerDisplay.style.color = textColor;
+
+            // Update List Status
+            EXERCISES.forEach(ex => {
+                const card = document.getElementById(`ex-card-${ex.id}`);
+                if (!card) return;
+                if (ex.id === step.exId) card.className = "p-5 rounded-3xl active-row transition-all duration-500 ring-2 ring-sky-500/50 shadow-lg";
+                else if (ex.id < step.exId || (step.exId === 0 && currentSec > 0)) card.className = "p-5 rounded-3xl completed-row transition-all duration-500";
+                else card.className = "p-5 rounded-3xl bg-slate-800/40 border border-slate-700/50 transition-all duration-500";
+            });
+
+            if (currentSec >= totalSeconds) {
+                stop();
+                currentLabel.textContent = "TRAINING COMPLETE";
+                timerDisplay.textContent = "FIN";
+                timerDisplay.style.color = "#10b981";
+                setInfo.textContent = "EXCELLENT WORK";
+                beep(880, 1.5);
+            }
+        }
+
+        function start() {
+            if (currentSec >= totalSeconds) currentSec = 0;
+            isRunning = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            timerInterval = setInterval(() => {
+                currentSec++;
+                updateUI();
+            }, 1000);
+        }
+
+        function stop() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+        }
+
+        /**
+         * 4. 初期化
+         */
+        window.onload = () => {
+            const total = buildTimeline();
+            masterSlider.max = total;
+            timeTotal.textContent = formatTime(total);
+            initMenu();
+            updateUI();
+        };
+
+        document.getElementById('main-btn').addEventListener('click', () => {
+            if (isRunning) stop(); else start();
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            stop();
+            currentSec = 0;
+            lastStepIndex = -1;
+            updateUI();
+        });
+
+        masterSlider.addEventListener('input', (e) => {
+            currentSec = parseInt(e.target.value);
+            lastStepIndex = -1;
+            updateUI();
+        });
+    </script>
+</body>
+</html>
